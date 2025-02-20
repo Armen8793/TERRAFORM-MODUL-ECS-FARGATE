@@ -1,0 +1,1 @@
+## If you want ECR registry, there is a module for it, but not declared in the main file, because here is no image... You should create an image, load to ECR (with terraform automatically it can be done, for example, with null recource, but I'd prefer with Ansible
