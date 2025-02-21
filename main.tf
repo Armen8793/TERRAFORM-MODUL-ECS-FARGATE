@@ -2,6 +2,16 @@ resource "aws_ecs_cluster" "main" {
   name = "bdg-cluster"
 }
 
+
+resource "null_resource" "push_to_ecr" {
+  depends_on = [module.ecr]
+
+  provisioner "local-exec" {
+    command = "ANSIBLE_HOST_KEY_CHECKING=False ansible-playbook playbook.yaml"
+  }
+}
+
+
 data "template_file" "myapp" {
   template = file("./templates/ecs/myapp.json.tpl")
 
@@ -14,6 +24,10 @@ data "template_file" "myapp" {
   }
 }
 
+
+module "ecr" {
+  source = "./modules/ecr"
+}
 
 module "roles" {
   source = "./modules/roles"
