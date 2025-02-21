@@ -1,0 +1,35 @@
+---
+- name: Push Docker image to AWS ECR
+  hosts: localhost
+  gather_facts: no
+  vars:
+    aws_region: "us-east-2"
+    repository_name: "bdg-repo"
+    image_tag: "latest"
+
+  tasks:
+    - name: Authenticate Docker with AWS ECR
+      shell: |
+        aws ecr get-login-password --region {{ aws_region }} | \
+        docker login --username AWS --password-stdin $(aws ecr describe-repositories --repository-names {{ repository_name }} --query 'repositories[0].repositoryUri' --output text)
+      register: login_output
+      changed_when: false
+
+    - name: Build Docker image
+      shell: |
+        docker build -t mangoost-frontend:latest ./BlazorAppFront
+
+
+    - name: Get ECR repository URI
+      shell: |
+        aws ecr describe-repositories --repository-names {{ repository_name }} --query 'repositories[0].repositoryUri' --output text
+      register: ecr_uri
+      changed_when: false
+
+    - name: Tag Docker image
+      shell: |
+        docker tag mangoost-frontend:latest {{ ecr_uri.stdout }}:{{ image_tag }}
+
+    - name: Push Docker image to AWS ECR
+      shell: |
+        docker push {{ ecr_uri.stdout }}:{{ image_tag }}
