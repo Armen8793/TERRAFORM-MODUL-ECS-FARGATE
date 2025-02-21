@@ -1,0 +1,95 @@
+variables:
+  OBJECTS_DIRECTORY: 'obj'
+  NUGET_PACKAGES_DIRECTORY: '.nuget'
+  SOURCE_CODE_PATH: '*/*/'
+
+cache:
+  key: "$CI_JOB_STAGE-$CI_COMMIT_REF_SLUG"
+  paths:
+    - '$SOURCE_CODE_PATH$OBJECTS_DIRECTORY/project.assets.json'
+    - '$SOURCE_CODE_PATH$OBJECTS_DIRECTORY/*.csproj.nuget.*'
+    - '$NUGET_PACKAGES_DIRECTORY'
+  policy: pull-push
+
+
+stages:
+  - build
+  - tests
+  - sonar
+  - deploy
+
+build:
+  image: mcr.microsoft.com/dotnet/sdk:8.0
+  stage: build
+  before_script:
+    - 'dotnet restore --packages $NUGET_PACKAGES_DIRECTORY'
+  script:
+    - 'dotnet build'
+
+sonarqube-check:
+  image: mcr.microsoft.com/dotnet/sdk:8.0
+  stage: sonar
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
+    GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  before_script:
+    - 'dotnet restore --packages $NUGET_PACKAGES_DIRECTORY'
+  script:
+    - "apt-get update"
+    - "apt-get install --yes openjdk-17-jre"
+    - "dotnet tool install --global dotnet-sonarscanner"
+    - "dotnet tool install --global JetBrains.dotCover.GlobalTool"
+    - "export PATH=\"$PATH:$HOME/.dotnet/tools\""
+    - "dotnet sonarscanner begin /k:\"Armen8793_gitops-dotnet-helm-argocd_BlazorAppFront_AYne8G9WUJ9fzw-Nc_0S\" /d:sonar.token=\"$SONAR_TOKEN\" /d:\"sonar.host.url=$SONAR_HOST_URL\" /d:sonar.cs.dotcover.reportsPaths=dotCover.Output.html"
+    - "dotnet build"
+    - "dotnet dotcover test Frontend/BlazorAppFront/BlazorAppFront.csproj --dcReportType=HTML"
+    - "dotnet sonarscanner end /d:sonar.token=\"$SONAR_TOKEN\""
+  allow_failure: true
+  rules:
+    - if: $CI_COMMIT_BRANCH == 'master'
+
+tests:
+  image: mcr.microsoft.com/dotnet/sdk:8.0
+  stage: tests
+  before_script:
+    - 'dotnet restore --packages $NUGET_PACKAGES_DIRECTORY'
+  script:
+    - 'dotnet test Frontend/BlazorAppFront/BlazorAppFront.csproj'
+  dependencies:
+    - build
+  allow_failure: true
+
+.build_docker_template:
+  stage: deploy
+  variables:
+    DOCKER_BUILDKIT: 1
+  services:
+    - docker:dind
+  before_script:
+    - echo "${CI_REGISTRY_PASSWORD}" | docker login --username "${CI_REGISTRY_USER}" --password-stdin "${CI_REGISTRY}"
+  script:
+    - docker build -t ${CI_REGISTRY_IMAGE}:${IMAGE_TAG} .
+    - docker push ${CI_REGISTRY_IMAGE}:${IMAGE_TAG}
+  after_script:
+    - export IMAGE_SHA256=$(docker inspect --format='{{index .RepoDigests 0}}' ${CI_REGISTRY_IMAGE}:${IMAGE_TAG})
+    - git config --global user.email "${GITLAB_USER_EMAIL}" && git config --global user.name "gitlab-ci-token"
+    - git clone https://gitlab-ci-token:$GRP_GIT_PULL_PUSH_TOKEN@${CI_SERVER_HOST}/Armen8793/gitops-dotnet-helm-argocd.git
+    - 'echo -e "image:\n    repository: $IMAGE_SHA256\n    pullPolicy: IfNotPresent\n    tag: []" > gitops-dotnet-helm-argocd/helmchart/blazor-app-front/values-tag.yaml'
+    - cd argocd-deployer-services && git add -A && git commit -m "add new image blazor-app-front"
+    - git push https://gitlab-ci-token:$GRP_GIT_PULL_PUSH_TOKEN@${CI_SERVER_HOST}/Armen8793/gitops-dotnet-helm-argocd.git HEAD:main
+  tags:
+    - docker
+  dependencies:
+    - build
+  rules:
+    - if: '$CI_COMMIT_REF_NAME =~ /^master$/'
+
+build_docker:
+  extends:
+    - .build_docker_template
+  variables:
+    IMAGE_TAG: ${CI_COMMIT_REF_SLUG}

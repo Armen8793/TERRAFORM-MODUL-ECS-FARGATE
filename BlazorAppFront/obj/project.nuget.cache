@@ -1,0 +1,10 @@
+{
+  "version": 2,
+  "dgSpecHash": "e8SDL/my2yopa59d8tyL1CQMNJH5Ak/hWvGwPQlk8V/F+tvBQTGYmAJXjDyqXEQsww496r5qiKbdVDN3Vw7SJg==",
+  "success": true,
+  "projectFilePath": "C:\\Users\\Sergey Avetisyan\\Desktop\\Frontend\\BlazorAppFront\\BlazorAppFront.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\Sergey Avetisyan\\.nuget\\packages\\microsoft.visualstudio.azure.containers.tools.targets\\1.19.4\\microsoft.visualstudio.azure.containers.tools.targets.1.19.4.nupkg.sha512"
+  ],
+  "logs": []
+}

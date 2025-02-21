@@ -1,0 +1,21 @@
+﻿@page "/counter"
+
+<PageTitle>Counter</PageTitle>
+
+<h1>Counter</h1>
+
+<p role="status">Current count: @result</p>
+
+<button class="btn btn-primary" @onclick="IncrementCount">Click me</button>
+<input type="text" @bind="requestPath" />
+@* <InputText @bind="@requestPath"></InputText>
+ *@
+@code {
+    private string result = "";
+    string requestPath = "";
+    private void IncrementCount()
+    {
+        HttpClient client = new();
+        result = client.GetAsync(requestPath).Result.Content.ReadAsStringAsync().Result;
+    }
+}

@@ -1,0 +1,27 @@
+version: '3.7'
+
+services:
+  dotnet:
+    image: dotnet
+    ports:
+      - "81:80" 
+    networks:
+      - dotnet_network
+      - traefik_endpoint
+    restart: always
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_endpoint"
+      - "traefik.http.routers.dotnet.rule=Host(`dotnet.localhost`)"
+      - "traefik.http.routers.dotnet.entrypoints=websecure"
+      - "traefik.http.routers.dotnet.certresolver=le"
+      - "traefik.http.routers.dotnet.tls=true"
+      - "traefik.http.routers.dotnet.middlewares=auth@file, http-to-https@file, compress-response@file"
+        #- "traefik.http.services.dotnet.loadbalancer.server.port=80"
+
+networks:
+  dotnet_network:
+    external: true
+  traefik_endpoint:
+    external: true
+
